@@ -85,14 +85,10 @@ var loadMapImg = function (img, bounds) {
     } else if (window.state.bounds != null) {
         bounds = window.state.bounds;
     } else {
-        bounds = [[0, 0], [img.height, img.width]];
+        bounds = [[0, 0], [img.width, img.height]];
         window.state.bounds = bounds;
     }
     
-    window.mapItem.setMaxBounds([
-        [bounds[1][0] * -1, bounds[1][1] * -1],
-        [bounds[1][0] * 1.9, bounds[1][1] * 1.9]
-    ]);
     if (window.state.imgLayer) {
         window.mapItem.removeLayer(window.state.imgLayer);
     }
