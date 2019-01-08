@@ -1,7 +1,8 @@
 window.state = {
     imgLayer: null,
     bounds: null,
-    features: {}
+    features: {},
+    featureCount: 0
 };
 
 var FeatureTypes = {
@@ -14,16 +15,13 @@ class MapFeature {
         var feature = new MapFeature();
         feature.type = featureType;
         feature.name = layer.feature.properties.name;
+        feature.id = window.state.featureCount = window.state.featureCount + 1
         feature.layer = layer;
-        var name = feature.name;
-        if (name && window.state.features[featureType].map(a => a.name).indexOf(name.trim()) == -1) {
-            layer.feature.info = feature;
-            window.state.features[`selected${featureType}`] = feature;
-            window.state.features[featureType].push(feature);
-            MapFeature.updateLists(featureType);
-        } else {
-            throw new Error("Duplicate name.");
-        }
+
+        layer.feature.info = feature;
+        window.state[`selected${featureType}`] = feature;
+        window.state.features[featureType].push(feature);
+        MapFeature.updateLists(featureType);
     }
 
     select() {
@@ -32,19 +30,31 @@ class MapFeature {
     }
 
     remove() {
-        var i = window.state.features[this.type].map(a => a.name).indexOf(this.name);
+        var i = window.state.features[this.type].map(a => a.id).indexOf(this.id);
         if (i > -1) {
             this.layer.remove();
             window.state.features[this.type].splice(i, 1);
             MapFeature.updateLists(this.type);
+            
         }
     }
 
     modify(name) {
-        if (name !== this.name && window.state.features[this.type].filter(a => a.name === name).length === 0) {
+        if (name !== this.name) {
             this.name = name;
             MapFeature.updateLists(this.type);
         }
+    }
+
+    toGeoJSON() {
+        var old_info = this.layer.feature.info;
+        var id = this.id;
+        delete this.layer.feature.info; // Removes circular dependency
+        delete this.id;
+        var geoJSON = this.layer.toGeoJSON();
+        this.layer.info = old_info;
+        this.id = id;
+        return geoJSON;
     }
 
     static updateLists(featureType) {
@@ -80,6 +90,10 @@ class MapFeature {
 }
 
 var loadMapImg = function (img, bounds) {
+    /*
+        The X and Y bounds are swapped in leaflet. Use [height, width] for defining the map.
+        See "This is not the LatLng you’re looking for" at https://leafletjs.com/examples/crs-simple/crs-simple.html
+    */
     if (bounds != null) {
         window.state.bounds = bounds;
     } else if (window.state.bounds != null) {
@@ -95,6 +109,11 @@ var loadMapImg = function (img, bounds) {
     window.state.imgLayer = L.imageOverlay(img, bounds);
     window.state.imgLayer.addTo(window.mapItem);
     window.mapItem.fitBounds(bounds);
+
+    var center = window.mapItem.getCenter();
+    window.mapItem.options.crs = L.CRS[$('#coordSetting').val()];
+    window.mapItem.setView(center);
+    window.mapItem._resetView(window.mapItem.getCenter(), window.mapItem.getZoom());
 
     window.mapItem.addLayer(window.drawnItems);
 
@@ -147,7 +166,6 @@ var loadGeoJson = () => {
 }
 
 var copyGeoJson = (e) => {
-    var data = window.state.features.marker.map(p => { return p.marker; });
-    data = data.concat(window.state.features.polygon.map(a => { return a.polygon; }));
-    e.attributes["data-clipboard-text"].value = "[" + data.map(p => JSON.stringify(p.toGeoJSON())).join(',') + "]";
+    var features = Object.entries(window.state.features).map(([_, feature_group]) => feature_group).flat(1);
+    e.attributes["data-clipboard-text"].value = "[" + features.map(p => JSON.stringify(p.toGeoJSON())).join(',') + "]";
 };
