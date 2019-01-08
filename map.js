@@ -99,7 +99,7 @@ var loadMapImg = function (img, bounds) {
     } else if (window.state.bounds != null) {
         bounds = window.state.bounds;
     } else {
-        bounds = [[0, 0], [img.width, img.height]];
+        bounds = [[0, 0], [img.height, img.width]];
         window.state.bounds = bounds;
     }
     
